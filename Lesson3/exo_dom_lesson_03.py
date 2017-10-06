@@ -1,5 +1,3 @@
-# Récupération des des users sur la page
-# https://gist.github.com/paulmillr/2657075
 import matplotlib.pyplot as plt
 from matplotlib import rc
 import seaborn as sns
@@ -30,9 +28,7 @@ def getUser(df, columnName=['User', 'Contribs']):
     return userFrame
 
 
-# Récupération des données par l'API GitHub
-# en utilisant l'API Pyhton PyGithub
-g = Github('c7939dc6289b311963d555b614e1ac2d187cc29d')
+g = Github('67b58354e4e98f1e831733a01f2281e889cb59b9')
 
 
 def getReposTable(name):
@@ -46,14 +42,11 @@ def getReposTable(name):
                         'starCount': reposStar})
 
 
-# if __name__ == '__main__':
-#     df = getTable(url)
-#     userFrame = getUser(df)
 df = getTable(url)
 userFrame = getUser(df)
 
 repoTable = pd.DataFrame(columns=['name', 'repo', 'starCount'])
-for name in userFrame['User'][:5]:
+for name in userFrame['User']:
     repoTable = repoTable.append(getReposTable(name))
 
 starAvg = repoTable.groupby(['name']).agg({'repo': 'count',
@@ -61,14 +54,11 @@ starAvg = repoTable.groupby(['name']).agg({'repo': 'count',
 starAvg_nContribs = starAvg.merge(userFrame, left_index=True, right_on='User',
                                   how='inner')
 
-# Let's plot results
-# Init seaborn
 sns.set_context("poster")
 sns.set_palette("colorblind")
 sns.axes_style()
 sns.set_style({'legend.frameon': True})
 
-# retrieve metrics and label
 x = starAvg_nContribs.Contribs
 y = starAvg_nContribs.starCount / starAvg_nContribs.repo
 n = starAvg_nContribs.User
