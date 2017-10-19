@@ -1,9 +1,4 @@
-# recuperer modèle (dans l'annonce) selon les modèle de la centrale,
-# années kilomètrage, zip
-# sur le boncoin si cat égale voiture
-#
-# request sur la centrale avec ces paramètres
-# récupérer le prix
+# Script to retrive all zoe offers on boncoin and compare price with lacentral's
 
 import requests
 from bs4 import BeautifulSoup
