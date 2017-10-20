@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import re
+import itertools
 import ipdb
 
 
@@ -23,11 +24,11 @@ def getSoupFromURL(url, method='get', data={}):
         return None
 
 
-def urlBonCoin(region, page):
-    return 'https://www.leboncoin.fr/voitures/offres/'+region+'/?o='+str(page)+'&brd=Renault&mdl=Zoe'
+def urlBonCoin(region, page, brand, model):
+    return 'https://www.leboncoin.fr/voitures/offres/'+region+'/?o='+str(page)+'&brd='+brand+'&mdl='+model
 
 
-def getBonCoinTable(url, itemInfo_class, carName_loc, carURI_loc):
+def getBonCoinTable(url, itemInfo_class = 'list_item clearfix trackable', carName_loc = 'title', carURI_loc = 'href'):
     soup = getSoupFromURL(url)
     if soup:
         content = soup.find_all(class_=itemInfo_class)
@@ -36,13 +37,13 @@ def getBonCoinTable(url, itemInfo_class, carName_loc, carURI_loc):
         for car in content:
             carName += [car.get(carName_loc)]
         for car in content:
-            carURI += ['https:' + car.get(carURI_loc)] # rajouter le https en début d'url
+            carURI += ['https:' + car.get(carURI_loc)]
         return pd.DataFrame({'carName': carName, 'carURI': carURI})
     else:
         0
 
 
-def getBonCoinIntel(url, zipcodeDefault=75001):
+def getBonCoinIntel(url, submodel, zipcodeDefault=75001):
     soup = getSoupFromURL(url)
     # Retrieve properties and values from table
     properties = list(map(lambda x: x.text.strip(),
@@ -52,7 +53,7 @@ def getBonCoinIntel(url, zipcodeDefault=75001):
     car_intel = {property: value for
                  property, value in zip(properties, values)}
     # Retrieve car model
-    model = re.search(r'intens|zen|life',
+    model = re.search(submodel,
                       soup.find(attrs={'itemprop': 'description'}).text.lower())
     if model:
         car_intel['model'] = model.group(0)
@@ -66,7 +67,7 @@ def getBonCoinIntel(url, zipcodeDefault=75001):
     else:
         car_intel['phone'] = 'inconnu'
     # Retrieve user zipcode
-    zipcode = re.search(r'(\d{4})$', car_intel['Ville'])
+    zipcode = re.search(r'(\d{5})$', car_intel['Ville'])
     if zipcode:
         car_intel['zipcode'] = int(zipcode.group(0))
     else:
@@ -82,24 +83,27 @@ def getBonCoinIntel(url, zipcodeDefault=75001):
 if __name__ == "__main__":
     regions = ['ile_de_france', 'PACA']
     maxPage = 6
-    itemInfo_class = 'list_item clearfix trackable'
-    carName_loc = 'title'
-    carURI_loc = 'href'
+    cat = 'auto'
+    brand = 'Renault'
+    model = 'Zoe'
+    submodel = 'zen|intens|life'
 
     df_boncoin = pd.DataFrame(columns=['carName', 'carURI'])
     for region in regions:
         for page in range(maxPage):
-            url_boncoin = urlBonCoin(region, page)
-            df_boncoin_modelURI = getBonCoinTable(url_boncoin, itemInfo_class, carName_loc, carURI_loc)
+            url_boncoin = urlBonCoin(region, page, brand, model)
+            df_boncoin_modelURI = getBonCoinTable(url_boncoin)
             df_boncoin = df_boncoin.append(df_boncoin_modelURI)
-
-    df_car_intel = pd.DataFrame(list(map(getBonCoinIntel, df_boncoin['carURI'])))
+    ipdb.set_trace()
+    df_car_intel = pd.DataFrame(list(map(getBonCoinIntel,
+                                     df_boncoin['carURI'],
+                                     itertools.repeat(submodel, len(df_boncoin['carURI'])))))
     df_boncoin[df_car_intel.columns] = df_car_intel
 
-    urlCentral = 'https://www.lacentrale.fr/cote-auto-renault-zoe-'
+    urlCentral = 'https://www.lacentrale.fr/cote-'+cat+'-'+brand+'-'+model+'-'
     df_boncoin['cote'] = df_boncoin.apply(lambda x: getSoupFromURL(urlCentral+x['model']+
                                                     '-'+x['Année-modèle']+'.html', 'post',
                                                     {'km': x['Kilomètrage'], 'zipcode': x['zipcode']}).
                                                     find(class_='jsRefinedQuot').text)
-    ipdb.set_trace()
+
     df_boncoin.to_csv('boncoinCote.csv')
